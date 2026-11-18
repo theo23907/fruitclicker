@@ -86,13 +86,10 @@ h1{margin:0;font-size:1.1rem;font-weight:600;color:var(--peach);letter-spacing:.
     <div class="bar"><i id="bar"></i></div>
     <div class="next" id="next"></div>
     <div class="pcard" id="pgui" hidden>
-      <div class="prow"><span>✨ Picked, unconverted</span><b id="pool">0</b></div>
+      <div class="prow"><span>✨ Picked this run</span><b id="pool">0</b></div>
       <div class="prow"><span>Points to spend</span><b id="pavail">0</b></div>
       <div class="prow"><span>Earned in total (+5% each)</span><b id="pearn">0</b></div>
       <div class="prow rate"><span>Rate</span><b>1M picks = 1 point</b></div>
-      <label class="prow" for="pslide"><span>Amount to convert</span><b id="pval">100%</b></label>
-      <input type="range" id="pslide" min="0" max="100" step="1" value="100">
-      <div class="qb"><button class="btn" data-q="25">25%</button><button class="btn" data-q="50">50%</button><button class="btn" data-q="75">75%</button><button class="btn" data-q="100">Max</button></div>
       <div class="pre" id="ppre"></div>
       <button class="cv" id="pconv">Convert to prestige points</button>
     </div>
@@ -155,25 +152,27 @@ const PUPS=[
 const pm=()=>(1+.05*S.earned)*(S.pup.pa?1.5:1)*(S.pup.pf?2:1)*(S.pup.ph?3:1);
 const fmtP=n=>{n=Math.max(0,n);return n>=100?n.toFixed(1):n>=1?n.toFixed(2):n.toFixed(3)};
 const avail=()=>Math.max(0,S.earned-PUPS.reduce((a,p)=>a+(S.pup[p.id]?p.c:0),0));
-const pamt=()=>S.pool*($('pslide').value/100);
+const pamt=()=>S.pool;
 function buildP(){$('pups').innerHTML=PUPS.map(p=>`<button class="item" data-p="${p.id}"><span class="e">${p.e}</span><span class="t"><div class="n">${p.n}</div><div class="d">${p.d}</div></span><span class="c" data-pc="${p.id}"></span></button>`).join('')}
 function renderP(){
- const un=S.total>=1e5;$('pgui').hidden=!un;$('prest').hidden=!un;
+ const un=S.total>=1e5||S.earned>0;$('pgui').hidden=!un;$('prest').hidden=!un;
  const amt=pamt(),pts=amt/1e6;
  $('ppn').textContent=fmtP(avail());$('pavail').textContent=fmtP(avail());$('pearn').textContent=fmtP(S.earned);
- $('pool').textContent=fmt(S.pool);$('pval').textContent=$('pslide').value+'%';
- $('ppre').textContent='Convert '+fmt(amt)+' picks into '+fmtP(pts)+' points';
- $('pconv').disabled=pts<=0;
+ $('pool').textContent=fmt(S.pool);
+ $('ppre').textContent='Prestige now: +'+fmtP(pts)+' points';
+ $('pconv').textContent=pcf?'Click again: lose everything!':'Prestige and reset everything';
+ $('pconv').disabled=pts<.1;
  for(const p of PUPS){const el=document.querySelector(`[data-p="${p.id}"]`),own=S.pup[p.id];el.classList.toggle('done',!!own);el.classList.toggle('ok',!own&&avail()>=p.c);el.querySelector('[data-pc]').textContent=own?'Owned':p.c+' pt'}
 }
 function buyP(id){const p=PUPS.find(x=>x.id===id);if(!S.pup[id]&&avail()>=p.c){S.pup[id]=1;toast(p.e+' '+p.n+' unlocked');save();render()}}
+let pcf=0;
 function convert(){
- const amt=pamt(),pts=amt/1e6;if(pts<=0)return;
- S.pool-=amt;S.earned=Math.round((S.earned+pts)*1e6)/1e6;
- toast('+'+fmtP(pts)+' prestige points');save();render();
+ const pts=pamt()/1e6;if(pts<.1)return;
+ if(!pcf){pcf=1;setTimeout(()=>{pcf=0;renderP()},3000);renderP();return}
+ pcf=0;S.earned=Math.round((S.earned+pts)*1e6)/1e6;
+ S.fruit=0;S.total=0;S.pool=0;S.clicks=0;S.own={};S.up={};
+ toast('Prestiged! +'+fmtP(pts)+' points. Fresh start.');renderUps();save();render();
 }
-$('pslide').oninput=renderP;
-document.querySelectorAll('[data-q]').forEach(b=>b.onclick=()=>{$('pslide').value=b.dataset.q;renderP()});
 $('pconv').onclick=convert;
 
 // build shop once
